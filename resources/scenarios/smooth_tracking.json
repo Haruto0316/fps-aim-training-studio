@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "smooth_tracking",
+  "type": "smooth_tracking",
+  "name": "Smooth Tracking",
+  "description": "一定のパターンで動くダミーを、固定視点からなめらかに追います。",
+  "difficulty": "基礎",
+  "duration_seconds": 45,
+  "player": {
+    "position": [
+      0,
+      1.65,
+      0
+    ],
+    "movement_enabled": false
+  },
+  "map": {
+    "backdrop_color": "#192b38"
+  },
+  "weapon": {
+    "preset": "tracking_carbine"
+  },
+  "target": {
+    "radius": 0.27,
+    "x_extent": 2.8,
+    "y_extent": 1,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "behavior": "horizontal",
+    "speed": 3
+  },
+  "scoring": {
+    "points_per_hit": 100
+  }
+}

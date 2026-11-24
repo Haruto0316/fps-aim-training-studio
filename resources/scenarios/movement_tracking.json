@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "movement_tracking",
+  "type": "movement_tracking",
+  "name": "Movement Tracking",
+  "description": "ジャンプや急な方向転換をするダミーを追い、連続命中を伸ばします。",
+  "difficulty": "上級",
+  "duration_seconds": 45,
+  "player": {
+    "position": [
+      0,
+      1.65,
+      0
+    ],
+    "movement_enabled": true
+  },
+  "map": {
+    "backdrop_color": "#192b38"
+  },
+  "weapon": {
+    "preset": "tracking_carbine"
+  },
+  "target": {
+    "radius": 0.34,
+    "x_extent": 3.2,
+    "y_extent": 0.45,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "health": 125,
+    "speed": 3.5,
+    "acceleration": 18,
+    "respawn_seconds": 0.65,
+    "behavior": "jump",
+    "track_aim": true,
+    "jump_height": 0.95,
+    "jump_seconds": 0.65,
+    "jump_gap_min": 0.45,
+    "jump_gap_max": 1.05,
+    "turn_min": 0.4,
+    "turn_max": 1.2
+  },
+  "scoring": {
+    "points_per_hit": 100,
+    "points_per_elimination": 0
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "static_clicking",
+  "type": "static_clicking",
+  "name": "Static Clicking",
+  "description": "ランダムに現れる静止ターゲットを、素早く正確にクリックします。",
+  "difficulty": "基礎",
+  "duration_seconds": 30,
+  "player": { "position": [0, 1.65, 0], "movement_enabled": false },
+  "weapon": { "type": "hitscan", "range": 80 },
+  "map": { "backdrop_color": "#192b38" },
+  "target": {
+    "radius": 0.28,
+    "x_extent": 2.7,
+    "y_extent": 1.0,
+    "depth": 7.5,
+    "color": "#ff805c"
+  },
+  "scoring": { "points_per_hit": 100 }
+}

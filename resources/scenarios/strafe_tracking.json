@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "strafe_tracking",
+  "type": "strafe_tracking",
+  "name": "Strafe Tracking",
+  "description": "左右に動くダミーを、移動しながら追い続けます。",
+  "difficulty": "基礎",
+  "duration_seconds": 45,
+  "player": {
+    "position": [
+      0,
+      1.65,
+      0
+    ],
+    "movement_enabled": true
+  },
+  "map": {
+    "backdrop_color": "#192b38"
+  },
+  "weapon": {
+    "preset": "tracking_carbine"
+  },
+  "target": {
+    "radius": 0.34,
+    "x_extent": 3.2,
+    "y_extent": 0.45,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "health": 125,
+    "speed": 3.1,
+    "acceleration": 18,
+    "respawn_seconds": 0.65,
+    "behavior": "strafe",
+    "track_aim": true
+  },
+  "scoring": {
+    "points_per_hit": 100,
+    "points_per_elimination": 0
+  }
+}

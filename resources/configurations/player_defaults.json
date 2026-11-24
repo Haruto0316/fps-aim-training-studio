@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "preset": "generic",
+  "sensitivity": 0.035,
+  "horizontal": 1.0,
+  "vertical": 1.0,
+  "vertical_fov": 65.0,
+  "dpi": 800
+}

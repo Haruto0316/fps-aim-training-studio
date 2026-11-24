@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "id": "strafe_elimination",
+  "type": "strafe_elimination",
+  "name": "Strafe Elimination",
+  "description": "左右に移動するダミーを追い続け、連続命中で耐久値を削ります。",
+  "difficulty": "中級",
+  "duration_seconds": 60,
+  "player": { "position": [0, 1.65, 0], "movement_enabled": true },
+  "map": { "backdrop_color": "#192b38" },
+  "weapon": {
+    "type": "hitscan",
+    "range": 80,
+    "fire_mode": "automatic",
+    "damage": 25,
+    "rounds_per_minute": 600,
+    "ads_zoom": 1.5,
+    "ads_sensitivity": 0.75,
+    "spread_degrees": 0.0,
+    "ads_spread_multiplier": 0.45,
+    "recoil_enabled": false,
+    "recoil_degrees": [[0, 0.48], [-0.12, 0.48], [0.16, 0.48]],
+    "ads_recoil_multiplier": 0.65
+  },
+  "target": {
+    "radius": 0.34,
+    "x_extent": 3.2,
+    "y_extent": 0.45,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "health": 125,
+    "speed": 3.1,
+    "acceleration": 18,
+    "respawn_seconds": 0.65
+  },
+  "scoring": { "points_per_hit": 100, "points_per_elimination": 250 }
+}

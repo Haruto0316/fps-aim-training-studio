@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.data/
+.godot/
+.openai/
+.sites-runtime/
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite*
+*.zip

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "reactive_tracking",
+  "type": "reactive_tracking",
+  "name": "Reactive Tracking",
+  "description": "方向と速度が不規則に変わるダミーを追い、照準の追従精度を高めます。",
+  "difficulty": "中級",
+  "duration_seconds": 45,
+  "player": {
+    "position": [
+      0,
+      1.65,
+      0
+    ],
+    "movement_enabled": false
+  },
+  "map": {
+    "backdrop_color": "#192b38"
+  },
+  "weapon": {
+    "preset": "tracking_carbine"
+  },
+  "target": {
+    "radius": 0.27,
+    "x_extent": 2.8,
+    "y_extent": 1,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "behavior": "reactive",
+    "speed": 3.4,
+    "turn_min": 0.24,
+    "turn_max": 0.75,
+    "speed_min_factor": 0.55
+  },
+  "scoring": {
+    "points_per_hit": 100
+  }
+}

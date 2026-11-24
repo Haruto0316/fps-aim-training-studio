@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "elimination_training",
+  "type": "elimination_training",
+  "name": "Elimination Training",
+  "description": "耐久値の高い移動ダミーに連続で当て、撃破数と撃破時間を競います。",
+  "difficulty": "上級",
+  "duration_seconds": 60,
+  "player": {
+    "position": [
+      0,
+      1.65,
+      0
+    ],
+    "movement_enabled": true
+  },
+  "map": {
+    "backdrop_color": "#192b38"
+  },
+  "weapon": {
+    "preset": "tracking_carbine"
+  },
+  "target": {
+    "radius": 0.34,
+    "x_extent": 3.2,
+    "y_extent": 0.45,
+    "depth": 7.8,
+    "color": "#ff805c",
+    "health": 175,
+    "speed": 3.7,
+    "acceleration": 18,
+    "respawn_seconds": 0.65,
+    "behavior": "strafe",
+    "track_aim": false
+  },
+  "scoring": {
+    "points_per_hit": 100,
+    "points_per_elimination": 350
+  }
+}

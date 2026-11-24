@@ -1,0 +1,17 @@
+{
+  "walk_speed": 5.2,
+  "sprint_speed": 8.4,
+  "crouch_speed": 2.7,
+  "acceleration": 26.0,
+  "deceleration": 12.0,
+  "ground_friction": 2.8,
+  "air_acceleration": 9.0,
+  "air_control": 0.65,
+  "jump_speed": 5.4,
+  "gravity": 16.0,
+  "slide_boost": 1.4,
+  "slide_friction": 5.5,
+  "slide_min_speed": 3.8,
+  "slide_max_seconds": 1.1,
+  "eye_speed": 6.5
+}

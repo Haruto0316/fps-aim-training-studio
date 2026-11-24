@@ -1,0 +1,27 @@
+{
+  "type": "hitscan",
+  "range": 80,
+  "fire_mode": "automatic",
+  "damage": 25,
+  "rounds_per_minute": 600,
+  "ads_zoom": 1.5,
+  "ads_sensitivity": 0.75,
+  "spread_degrees": 0,
+  "ads_spread_multiplier": 0.45,
+  "recoil_enabled": false,
+  "recoil_degrees": [
+    [
+      0,
+      0.48
+    ],
+    [
+      -0.12,
+      0.48
+    ],
+    [
+      0.16,
+      0.48
+    ]
+  ],
+  "ads_recoil_multiplier": 0.65
+}
