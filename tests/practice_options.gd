@@ -29,15 +29,34 @@ func _run() -> void:
 	studio.custom_library_dir = test_dir
 	root.add_child(studio)
 	await process_frame
+	_check(_captions(studio.page) == ["練習モード", "設定", "終了"], "start screen has exactly three actions")
 	_press(studio, "設定")
 	_check_arrow_steps(studio.page, "home")
+	_check_dpi_choices(studio.page)
 	studio.show_home()
-	for mode: String in ["Static Clicking", "Multi Target", "Smooth Tracking", "Reactive Tracking", "Target Switching"]:
-		await _check_mode(studio, mode, "標準練習モード")
-	await _check_mode(studio, "移動練習")
-	await _check_mode(studio, "移動ダミー撃破")
-	for mode: String in ["Strafe Tracking", "Cover Tracking", "Movement Tracking", "Elimination Training"]:
-		await _check_mode(studio, mode, "移動型ドリル")
+	_press(studio, "練習モード")
+	_check(_captions(studio.page) == ["ホーム", "トラッキング", "フリック", "カスタム練習"], "custom practice is beside both categories")
+	_press(studio, "カスタム練習")
+	_check(_button(studio, "3D エディター") != null, "custom practice opens directly from the selector")
+	_press(studio, "戻る")
+	_press(studio, "フリック")
+	var flick := ["Static Clicking", "Multi Target", "Target Switching", "移動練習"]
+	var flick_listing := flick.duplicate()
+	flick_listing.insert(1, "Apex 人型ダミー")
+	_check(_captions(studio.page).slice(2) == flick_listing, "flick list includes the Apex humanoid drill")
+	_press(studio, "戻る")
+	_press(studio, "トラッキング")
+	var tracking := ["Smooth Tracking", "Reactive Tracking", "Strafe Tracking", "Cover Tracking", "Movement Tracking", "Elimination Training", "移動ダミー撃破"]
+	_check(_captions(studio.page).slice(2) == tracking, "tracking list contains only tracking drills")
+	_press(studio, "Smooth Tracking")
+	_press(studio, "戻る")
+	_check(_captions(studio.page).slice(2) == tracking, "back from drill details returns to its list")
+	studio.show_home()
+	for mode: String in flick:
+		await _check_mode(studio, mode, "フリック")
+	for mode: String in tracking:
+		await _check_mode(studio, mode, "トラッキング")
+	await _check_humanoid(studio)
 	await _check_custom(studio)
 	studio.queue_free()
 	for file: String in DirAccess.get_files_at(test_dir):
@@ -47,11 +66,11 @@ func _run() -> void:
 	quit(0 if failures.is_empty() else 1)
 
 
-func _check_mode(studio: Studio, mode: String, group := "") -> void:
-	if not group.is_empty():
-		_press(studio, group)
-		var cards := _previews(studio.page)
-		_check(cards.size() == (5 if group == "標準練習モード" else 4), "each mode card has a preview")
+func _check_mode(studio: Studio, mode: String, group: String) -> void:
+	_press(studio, "練習モード")
+	_press(studio, group)
+	var cards := _previews(studio.page)
+	_check(cards.size() == (5 if group == "フリック" else 7), "each mode card has a preview")
 	_press(studio, mode)
 	await process_frame
 	await process_frame
@@ -119,6 +138,9 @@ func _check_pause_settings(studio: Studio, session: Session) -> void:
 	preset.item_selected.emit(2)
 	base.get_line_edit().text = "1.7354"
 	fields[3].get_line_edit().text = "67.5"
+	var dpi := _check_dpi_choices(session.pause_settings)
+	dpi.select(4)
+	dpi.item_selected.emit(4)
 	_press(studio, "保存してポーズへ戻る")
 	await _ticks(4)
 	var saved := Aim.new(studio.aim.save_path)
@@ -128,6 +150,7 @@ func _check_pause_settings(studio: Studio, session: Session) -> void:
 		and session.camera.degrees_per_count != start_gain and is_equal_approx(session.camera.fov, 67.5)
 		and saved.values.preset == "apex" and is_equal_approx(saved.values.sensitivity, 1.7354),
 		"precise game sensitivity saves and immediately updates the same camera")
+	_check(saved.values.dpi == 3200, "pause DPI selection persists")
 	_key(KEY_ESCAPE)
 	await _ticks(4)
 	_check(not session.paused and session.clock.elapsed(Time.get_ticks_usec()) > frozen, "resuming continues the same timer")
@@ -135,11 +158,24 @@ func _check_pause_settings(studio: Studio, session: Session) -> void:
 
 func _check_arrow_steps(parent: Node, location: String) -> Array[Node]:
 	var fields := parent.find_children("*", "SpinBox", true, false)
-	_check(fields.size() == 5, "the same mouse settings are available at " + location)
+	_check(fields.size() == 4, "only sensitivity and FOV use numeric fields at " + location)
 	for index in range(3):
 		var field: SpinBox = fields[index]
 		_check(is_equal_approx(field.custom_arrow_step, 0.1), "arrow step is 0.1 at " + location)
 	return fields
+
+
+func _check_dpi_choices(parent: Node) -> OptionButton:
+	var dpi: OptionButton = parent.find_child("MouseDpi", true, false)
+	var choices: Array[int] = []
+	for index in range(dpi.item_count):
+		choices.append(dpi.get_item_id(index))
+	_check(choices == [400, 800, 1000, 1600, 3200], "DPI is limited to the five requested values")
+	return dpi
+
+
+func _captions(parent: Node) -> Array:
+	return parent.find_children("*", "Button", true, false).map(func(button: Button) -> String: return button.text)
 
 
 func _click_arrow(field: SpinBox, up: bool) -> void:
@@ -170,6 +206,7 @@ func _check_custom(studio: Studio) -> void:
 		and not normalized.weapon.has("magazine") and not normalized.weapon.has("reload_seconds"),
 		"old custom configurations still validate and discard obsolete ammo options")
 	_check(Custom.save(document, studio.custom_library_dir) == OK, "custom scenario is saved")
+	_press(studio, "練習モード")
 	_press(studio, "カスタム練習")
 	await _ticks(4)
 	var previews := _previews(studio.page)
@@ -179,6 +216,51 @@ func _check_custom(studio: Studio) -> void:
 	_press(studio, "プレイ")
 	await _ticks(8)
 	_check(studio.session.hud_ammo.text == "弾数無制限", "custom practice also has unlimited ammo")
+
+
+func _check_humanoid(studio: Studio) -> void:
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
+	_press(studio, "Apex 人型ダミー")
+	_check(_previews(studio.page).size() == 1, "Apex drill has a preview")
+	var fields := studio.page.find_children("*", "SpinBox", true, false)
+	fields[1].get_line_edit().text = "2.2"
+	_press(studio, "この条件で開始")
+	var session := studio.session
+	await _ticks(8)
+	_check(session.humanoid != null and is_equal_approx(session.scenario.target.height, 2.2)
+		and session.hud_ammo.text == "弾数無制限", "Apex starts with the chosen size and unlimited shots")
+	var expected := {"head": 200, "upper_body": 100, "lower_body": 50}
+	var parts := {}
+	for part: CollisionShape3D in session.humanoid.find_children("*", "CollisionShape3D", false, false):
+		var region: String = part.get_meta("hit_region")
+		if not parts.has(region):
+			parts[region] = part
+	for region: String in expected:
+		var previous := session.stats.score()
+		var part: CollisionShape3D = parts[region]
+		session.camera.look_at(part.global_position)
+		_shoot()
+		await _ticks(8)
+		_check(session.stats.score() - previous == expected[region] and session.humanoid_hits.get(region) == 1,
+			"hitting the physical collider scores its region: " + region)
+		_check(session.hud_target.text.contains("+%d 点" % expected[region]), "HUD reports the points for the region")
+	session.camera.look_at(session.camera.global_position + Vector3.RIGHT)
+	_shoot()
+	await _ticks(8)
+	session.duration_usec = session.clock.elapsed(Time.get_ticks_usec()) + 25000
+	var result: Dictionary = await session.completed
+	_check(result.score == 350 and result.hits == 3 and result.shots == 4
+		and result.hit_regions == {"head": 1, "upper_body": 1, "lower_body": 1}, "results include each hit region and exclude misses")
+	_press(studio, "メニューへ戻る")
+
+
+func _shoot() -> void:
+	for pressed: bool in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		_send(event)
 
 
 func _previews(parent: Node) -> Array[Node]:

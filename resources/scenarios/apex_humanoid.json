@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "apex_humanoid",
+  "type": "apex_humanoid",
+  "name": "Apex 人型ダミー",
+  "description": "左右に出現する人型ダミーを狙います。頭・上半身・下半身の順に得点が高くなります。",
+  "difficulty": "中級",
+  "duration_seconds": 30,
+  "player": { "position": [0, 1.65, 0], "movement_enabled": false },
+  "weapon": { "type": "hitscan", "range": 80 },
+  "map": { "backdrop_color": "#192b38" },
+  "target": { "height": 1.8, "x_extent": 3.0, "depth": 7.5, "color": "#ff805c" },
+  "scoring": { "points_per_hit": 100, "hit_regions": { "head": 200, "upper_body": 100, "lower_body": 50 } }
+}

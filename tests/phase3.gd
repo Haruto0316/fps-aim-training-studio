@@ -86,6 +86,8 @@ func _test_round() -> void:
 	studio.best_path = test_dir.path_join("best.json")
 	root.add_child(studio)
 	await process_frame
+	_press(studio, "練習モード")
+	_press(studio, "トラッキング")
 	_press(studio, "移動ダミー撃破")
 	_press(studio, "この条件で開始")
 	var session := studio.session
@@ -131,6 +133,8 @@ func _test_round() -> void:
 	_check(studio.session == null and int(Store.read(studio.best_path).get("scores", {}).get(studio._record_key(), 0)) == 750, "best score is saved for the configured mode")
 
 	_press(studio, "メニューへ戻る")
+	_press(studio, "練習モード")
+	_press(studio, "トラッキング")
 	_press(studio, "移動ダミー撃破")
 	var selectors := studio.find_children("*", "OptionButton", true, false)
 	var selector: OptionButton = selectors[0]
@@ -182,6 +186,8 @@ func _test_continuous_fire() -> void:
 	studio.best_path = test_dir.path_join("continuous-best.json")
 	root.add_child(studio)
 	await process_frame
+	_press(studio, "練習モード")
+	_press(studio, "トラッキング")
 	_press(studio, "移動ダミー撃破")
 	_press(studio, "この条件で開始")
 	var session := studio.session

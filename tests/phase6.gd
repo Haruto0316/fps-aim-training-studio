@@ -21,6 +21,8 @@ func _run() -> void:
 	var studio: Studio = Main.instantiate()
 	root.add_child(studio)
 	await process_frame
+	_button(studio, "練習モード").pressed.emit()
+	_button(studio, "カスタム練習").pressed.emit()
 	_button(studio, "3D エディター").pressed.emit()
 	await process_frame
 	await process_frame
@@ -30,9 +32,14 @@ func _run() -> void:
 		"starter floor, target and cover are rendered without a history step")
 	await _test_pointer(editor)
 	_test_properties(editor)
+	editor.notice_timer.start(0.05)
+	await editor.notice_timer.timeout
+	_check(not editor.notice_panel.visible and editor.status.text.contains("マップ設定"), "notification expires while the result stays in the status bar")
 	var before := editor.draft.objects.duplicate(true)
 	var history_size := editor.draft.undo_stack.size()
 	_button(editor, "ホーム").pressed.emit()
+	_button(studio, "練習モード").pressed.emit()
+	_button(studio, "カスタム練習").pressed.emit()
 	_button(studio, "3D エディター").pressed.emit()
 	var reopened: Editor = studio.page
 	_check(not is_instance_valid(editor) or not editor.is_inside_tree(), "old editor page is detached")
@@ -90,8 +97,10 @@ func _test_pointer(editor: Editor) -> void:
 	_check(editor.draft.undo_stack.size() == 1, "one drag has one undo action")
 	_button(editor, "元に戻す").pressed.emit()
 	_check(target.position.is_equal_approx(origin), "undo restores the preview transform")
+	_check(editor.notice_panel.visible and editor.notice.text.contains("元に戻しました"), "undo displays feedback")
 	_button(editor, "やり直す").pressed.emit()
 	_check(target.position.is_equal_approx(moved), "redo restores the dragged position")
+	_check(editor.notice.text.contains("やり直しました"), "redo replaces the current notice")
 
 	_button(editor, "XZ").pressed.emit()
 	point = view.camera.unproject_position(moved)
@@ -116,6 +125,7 @@ func _test_pointer(editor: Editor) -> void:
 func _test_properties(editor: Editor) -> void:
 	editor.add_menu.select(Draft.KINDS.keys().find("enemy"))
 	_button(editor, "追加").pressed.emit()
+	_check(editor.notice_panel.visible and editor.notice.text.contains("追加しました"), "adding an object displays feedback")
 	var id := editor.selected
 	_check(editor.objects.item_count == 4 and editor.draft.get_object(id).kind == "enemy", "add an AI dummy from the object menu")
 	var node: MeshInstance3D = editor.view.nodes[id]
@@ -138,9 +148,11 @@ func _test_properties(editor: Editor) -> void:
 	_check(node.mesh is BoxMesh and is_equal_approx(node.rotation_degrees.y, 45.0)
 		and is_equal_approx(node.scale.x, 1.3) and values.color == "#77cdaa", "shape, rotation, scale and color reach the 3D preview")
 	_button(editor, "複製").pressed.emit()
+	_check(editor.notice.text.contains("複製しました"), "duplicating displays feedback")
 	var copy_id := editor.selected
 	_check(copy_id != id and editor.draft.get_object(copy_id).health == 250, "duplicate retains the edited properties")
 	_button(editor, "削除").pressed.emit()
+	_check(editor.notice.text.contains("削除しました"), "deleting displays feedback")
 	_check(editor.draft.get_object(copy_id).is_empty() and not editor.view.nodes.has(copy_id), "deleted object disappears in the scene")
 	_button(editor, "元に戻す").pressed.emit()
 	_check(editor.view.nodes.has(copy_id), "deletion undo recreates the mesh")

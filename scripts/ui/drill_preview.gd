@@ -3,6 +3,7 @@ extends Control
 const Style = preload("res://scripts/ui/style.gd")
 const Draft = preload("res://scripts/editor/editor_draft.gd")
 const Route = preload("res://scripts/scenarios/route_path.gd")
+const Scenario = preload("res://scripts/scenarios/scenario.gd")
 const FRAME := Vector2(320, 120)
 const CENTER := Vector2(160, 55)
 const AIM := Color("#88ece1")
@@ -64,6 +65,8 @@ func _draw() -> void:
 		match scenario.type:
 			"static_clicking", "movement_practice":
 				_draw_clicking()
+			Scenario.APEX_HUMANOID:
+				_draw_humanoid()
 			"multi_target", "target_switching":
 				_draw_group()
 			_:
@@ -98,6 +101,32 @@ func _draw_clicking() -> void:
 	if phase < 0.78:
 		_draw_target(point)
 	_draw_reticle(previous.lerp(point, smoothstep(0.08, 0.73, phase)))
+	if phase >= 0.78:
+		_draw_hit(point, inverse_lerp(0.78, 1.0, phase))
+
+
+func _draw_humanoid() -> void:
+	var beat := time / 1.2
+	var index := int(beat)
+	var phase := fposmod(beat, 1.0)
+	var height := 35.0 * float(scenario.target.height) / 1.8
+	var center := Vector2(CLICK_SPOTS[index % CLICK_SPOTS.size()].x, 87)
+	var head := center - Vector2(0, height * 0.91)
+	var torso := center - Vector2(0, height * 0.65)
+	var leg := center + Vector2(height * 0.065, -height * 0.25)
+	var aim_points := [head, torso, leg]
+	var point: Vector2 = aim_points[index % aim_points.size()]
+	if phase < 0.78:
+		var paint := Style.ACCENT
+		draw_circle(head, height * 0.081, paint.lightened(0.28), true, -1.0, true)
+		draw_line(torso - Vector2(0, height * 0.10), torso + Vector2(0, height * 0.10), paint, height * 0.24, true)
+		for side: float in [-1.0, 1.0]:
+			var shin := center + Vector2(side * height * 0.065, -height * 0.05)
+			draw_line(shin, shin - Vector2(0, height * 0.40), paint.darkened(0.21), height * 0.11, true)
+			var shoulder := torso + Vector2(side * height * 0.155, -height * 0.13)
+			draw_line(shoulder, shoulder + Vector2(0, height * 0.28), paint.darkened(0.05), height * 0.09, true)
+	var previous_x: float = CLICK_SPOTS[posmod(index - 1, CLICK_SPOTS.size())].x
+	_draw_reticle(Vector2(previous_x, 56).lerp(point, smoothstep(0.10, 0.72, phase)))
 	if phase >= 0.78:
 		_draw_hit(point, inverse_lerp(0.78, 1.0, phase))
 

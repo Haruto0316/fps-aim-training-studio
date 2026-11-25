@@ -31,6 +31,9 @@ func _run() -> void:
 	_test_route_math()
 	var studio := _studio()
 	await process_frame
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
+	_press(studio, "カスタム練習")
 	_press(studio, "3D エディター")
 	var editor: Editor = studio.page
 	var ids := _configure_arena(editor)
@@ -40,11 +43,14 @@ func _run() -> void:
 		push_error("Test arena didn't validate")
 		quit(1)
 		return
-	_check(editor._save() == OK and not editor.draft.is_dirty(), "editor saves a named document")
+	_press(editor, "保存")
+	_check(not editor.draft.is_dirty(), "editor saves a named document")
+	_check(editor.notice_panel.visible and editor.notice.text == "保存しました。" and editor.save_state.text == "保存済み", "successful save shows its result")
 	var saved_path: String = library.path_join(before.id + ".json")
 	_check(_same_document(Custom.load_file(saved_path), before), "save round-trips every normalised field")
 	var exported := folder.path_join("shared.json")
 	_check(editor._export_path(exported) == OK and _same_document(Custom.load_file(exported), before), "exported JSON can be read")
+	_check(editor.notice.text.contains("エクスポートしました"), "export displays feedback")
 	_test_validation(before)
 	await _test_play(studio, editor, before, ids)
 	studio.queue_free()
@@ -190,6 +196,8 @@ func _test_play(studio: Studio, editor: Editor, before: Dictionary, ids: Diction
 
 
 func _test_library(studio: Studio, document: Dictionary, exported: String) -> void:
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	_press(studio, "カスタム練習")
 	_check(Custom.catalogue(library).size() == 1 and _button(studio, "プレイ") != null, "fresh studio lists the saved scenario")
 	_press(studio, "プレイ")
@@ -203,11 +211,14 @@ func _test_library(studio: Studio, document: Dictionary, exported: String) -> vo
 	await run.completed
 	_check(studio.session == null and FileAccess.file_exists(studio.best_path), "regular custom play writes a best score")
 	_press(studio, "メニューへ戻る")
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	_press(studio, "カスタム練習")
 	_press(studio, "編集")
 	var editor: Editor = studio.page
 	_check(editor.draft.config.id == document.id and editor.draft.undo_stack.is_empty(), "saved scenario reopens cleanly")
 	_check(editor._import_path(exported) and editor.draft.config.id != document.id, "import creates a new independent ID")
+	_check(editor.notice.text.contains("インポートしました") and editor.save_state.text == "未保存", "import indicates the copy still needs saving")
 	_press(editor, "練習設定")
 	var config_dialog: ConfirmationDialog = editor.find_children("*", "ConfirmationDialog", true, false).back()
 	var name_field: LineEdit = config_dialog.find_children("*", "LineEdit", true, false)[0]
@@ -215,12 +226,17 @@ func _test_library(studio: Studio, document: Dictionary, exported: String) -> vo
 	config_dialog.confirmed.emit()
 	await process_frame
 	_check(editor.draft.config.name == "Shared copy", "practice settings rename the imported scenario")
+	_check(editor.notice.text.contains("適用しました") and editor.save_state.text == "未保存の変更あり", "applying settings shows feedback and unsaved changes")
+	editor.library_dir = exported
+	_check(editor._save() != OK and editor.notice.text.contains("保存できませんでした") and editor.draft.is_dirty(), "failed save shows an error and leaves the draft unsaved")
+	editor.library_dir = library
 	_check(editor._save() == OK and Custom.catalogue(library).size() == 2, "the imported copy becomes playable after saving")
 	_press(editor, "読み込み")
 	var load_dialog: ConfirmationDialog = editor.find_children("*", "ConfirmationDialog", true, false).back()
 	load_dialog.confirmed.emit()
 	await process_frame
 	_check(editor.draft.config.id == document.id, "editor can switch to a named saved scenario")
+	_check(editor.notice.text.contains("読み込みました"), "loading displays feedback")
 	var invalid := folder.path_join("invalid.json")
 	_check(Store.write(invalid, {"schema_version": 99}) == OK and not editor._import_path(invalid), "bad imports leave the current editor intact")
 

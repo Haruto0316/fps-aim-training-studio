@@ -5,6 +5,8 @@ const Main = preload("res://scenes/studio.tscn")
 const Movement = preload("res://scripts/movement/movement_settings.gd")
 const Player = preload("res://scripts/movement/player_body.gd")
 const Scenario = preload("res://scripts/scenarios/scenario.gd")
+const Bindings = preload("res://scripts/input/movement_bindings.gd")
+const KeyForm = preload("res://scripts/ui/key_bindings_form.gd")
 
 var failures: Array[String] = []
 var test_dir := "res://.godot/phase2-%d" % OS.get_process_id()
@@ -27,6 +29,7 @@ func _run() -> void:
 	var studio: Studio = Main.instantiate()
 	var movement_path := test_dir.path_join("movement.json")
 	studio.movement = Movement.new(movement_path)
+	studio.bindings = Bindings.new(test_dir.path_join("key_bindings.json"))
 	studio.best_path = test_dir.path_join("best.json")
 	root.add_child(studio)
 	await process_frame
@@ -48,6 +51,8 @@ func _run() -> void:
 	_check(corrected.sprint_speed == 6.0 and corrected.air_control == 0.0 and corrected.gravity == reloaded.defaults.gravity, "movement profile validation")
 	_check(Scenario.load_static(Scenario.MOVEMENT_PRACTICE).is_empty(), "movement mode uses its own scenario type")
 
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	_press(studio, "移動練習")
 	var key_with_profile := studio._record_key()
 	studio.movement.values.walk_speed = 4.1
@@ -171,7 +176,8 @@ func _run() -> void:
 	_check(studio.session.player.position.is_equal_approx(Vector3.ZERO), "movement retry resets position")
 	studio.session.abandoned.emit()
 
-	_press(studio, "標準練習モード")
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	_press(studio, "Static Clicking")
 	_press(studio, "この条件で開始")
 	await _ticks(5)
@@ -180,6 +186,8 @@ func _run() -> void:
 	await _ticks(15)
 	_key(KEY_W, false)
 	_check(studio.session.player == null and studio.session.camera.position == fixed_pos, "Static Clicking ignores movement keys")
+	studio.session.abandoned.emit()
+	await _test_key_bindings(studio)
 	studio.queue_free()
 
 	for file: String in DirAccess.get_files_at(test_dir):
@@ -187,6 +195,59 @@ func _run() -> void:
 	DirAccess.remove_absolute(test_dir)
 	print("Phase 2 tests passed." if failures.is_empty() else "Phase 2 checks failed: %d" % failures.size())
 	quit(0 if failures.is_empty() else 1)
+
+
+func _test_key_bindings(studio: Studio) -> void:
+	_press(studio, "設定")
+	_press(studio, "キー設定")
+	var form: KeyForm = studio.page.find_child("KeyBindingsForm", true, false)
+	form.buttons.move_forward.pressed.emit()
+	_key(KEY_S, true)
+	_key(KEY_S, false)
+	_check(form.draft.move_forward == KEY_S and form.draft.move_back == KEY_W, "duplicate assignment swaps the two keys")
+	_press(studio, "初期配置に戻す")
+	form.buttons.move_back.pressed.emit()
+	_press(studio, "入力をキャンセル")
+	_key(KEY_J, true)
+	_key(KEY_J, false)
+	_check(form.draft == Bindings.defaults(), "reset and cancel leave the default draft")
+	for pair: Array in [[&"move_forward", KEY_UP], [&"move_jump", KEY_J], [Bindings.PAUSE, KEY_P]]:
+		form.buttons[pair[0]].pressed.emit()
+		_key(pair[1], true)
+		_key(pair[1], false)
+	_press(studio, "保存して設定へ戻る")
+	var saved := Bindings.new(studio.bindings.save_path)
+	_check(saved.values.move_forward == KEY_UP and saved.values.move_jump == KEY_J and saved.values[Bindings.PAUSE] == KEY_P,
+		"bindings persist after loading a new settings instance")
+	_press(studio, "ホーム")
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
+	_press(studio, "移動練習")
+	_press(studio, "この条件で開始")
+	await _ticks(8)
+	var session := studio.session
+	var start := session.player.position.z
+	_key(KEY_W, true)
+	await _ticks(16)
+	_key(KEY_W, false)
+	_check(absf(session.player.position.z - start) < 0.01, "the old movement key is released")
+	_key(KEY_UP, true)
+	await _ticks(20)
+	_key(KEY_UP, false)
+	_check(session.player.position.z < start - 0.1, "the new movement key drives the player")
+	_key(KEY_J, true)
+	await _ticks(8)
+	_key(KEY_J, false)
+	_check(session.player.position.y > 0.1, "the new jump key drives the player")
+	_key(KEY_ESCAPE, true)
+	_key(KEY_ESCAPE, false)
+	_check(not session.paused, "the old pause key is released")
+	_key(KEY_P, true)
+	_key(KEY_P, false)
+	_check(session.paused, "the new key pauses the round")
+	_key(KEY_P, true)
+	_key(KEY_P, false)
+	_check(not session.paused, "the new key also resumes the round")
 
 
 func _teleport(player: Player, position: Vector3) -> void:

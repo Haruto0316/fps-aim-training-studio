@@ -4,12 +4,12 @@ const Store = preload("res://scripts/persistence/json_store.gd")
 const SAVE_PATH := "user://settings.json"
 const DEFAULTS := "res://resources/configurations/player_defaults.json"
 const PRESETS := "res://resources/presets/sensitivity.json"
+const DPI_OPTIONS := [400, 800, 1000, 1600, 3200]
 const FIELDS := {
 	"sensitivity": [0.0001, 100.0, 0.0001],
 	"horizontal": [0.1, 4.0, 0.01],
 	"vertical": [0.1, 4.0, 0.01],
-	"vertical_fov": [40.0, 100.0, 0.5],
-	"dpi": [100.0, 32000.0, 1.0]
+	"vertical_fov": [40.0, 100.0, 0.5]
 }
 
 var presets := Store.read(PRESETS)
@@ -42,6 +42,14 @@ func validate(raw: Dictionary) -> Dictionary:
 	# The active scalar also imports the selected preset from older settings files.
 	result.sensitivity = Store.number(raw.get("sensitivity"), sensitivities[result.preset], sensitivity_limits[0], sensitivity_limits[1])
 	sensitivities[result.preset] = result.sensitivity
+	var dpi: Variant = raw.get("dpi")
+	if (dpi is int or dpi is float) and is_finite(float(dpi)) and dpi > 0:
+		# Older settings accepted arbitrary DPI values. Keep the closest supported choice.
+		var closest: int = DPI_OPTIONS[0]
+		for option: int in DPI_OPTIONS:
+			if absf(dpi - option) < absf(dpi - closest):
+				closest = option
+		result.dpi = closest
 	return result
 
 

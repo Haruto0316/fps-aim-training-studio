@@ -20,11 +20,13 @@ const Weapon = preload("res://scripts/weapons/training_weapon.gd")
 const Strafe = preload("res://scripts/targets/strafe_target.gd")
 const Tracking = preload("res://scripts/scoring/tracking_stats.gd")
 const TargetGroup = preload("res://scripts/targets/target_group.gd")
+const Humanoid = preload("res://scripts/targets/humanoid_dummy.gd")
 const FixedMotion = preload("res://scripts/targets/fixed_tracking_motion.gd")
 const CustomRound = preload("res://scripts/training/custom_round.gd")
 
 var scenario: Dictionary
 var movement_tuning: Dictionary
+var bindings: Bindings
 var aim: Aim
 var fov: float
 var camera: AimCamera
@@ -37,6 +39,8 @@ var arena: Arena
 var weapon: Weapon
 var strafe: Strafe
 var target_group: TargetGroup
+var humanoid: Humanoid
+var humanoid_hits := {}
 var fixed_motion: FixedMotion
 var tracking: Tracking
 var custom: CustomRound
@@ -93,6 +97,7 @@ func _ready() -> void:
 	arena = Arena.new()
 	add_child(arena)
 	arena.build(scenario)
+	humanoid = arena.target as Humanoid
 	camera = AimCamera.new()
 	if is_custom:
 		custom = CustomRound.new(arena, scenario, rng)
@@ -108,7 +113,7 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 	if scenario.player.movement_enabled:
-		Bindings.register()
+		bindings.register()
 		player = Player.new()
 		player.tuning = movement_tuning
 		if custom != null:
@@ -141,7 +146,7 @@ func _capture(enabled: bool) -> void:
 func _input(event: InputEvent) -> void:
 	if finished:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if event is InputEventKey and event.pressed and not event.echo and Bindings.key_from_event(event) == bindings.values[Bindings.PAUSE]:
 		if pause_settings != null:
 			_close_pause_settings()
 		else:
@@ -223,11 +228,19 @@ func _physics_process(delta: float) -> void:
 			_resolve_group_shot(shot)
 			continue
 		var hit := false
+		var points := -1
 		if target_since >= 0 and shot.time >= target_since and not spawn_pending:
 			var impact := Hitscan.trace(get_world_3d(), shot.origin, shot.direction, scenario.weapon.range)
 			hit = impact.get("collider") == arena.target
+			if hit and humanoid != null:
+				var region := humanoid.hit_region(impact.shape)
+				points = scenario.scoring.hit_regions[region]
+				humanoid_hits[region] = humanoid_hits.get(region, 0) + 1
+				hud_target.text = "%s  +%d 点" % [Humanoid.LABELS[region], points]
+		if not hit and humanoid != null:
+			hud_target.text = "ミス"
 		var reaction := int(shot.time) - target_since if first_target_hit else -1
-		stats.register_shot(hit, reaction)
+		stats.register_shot(hit, reaction, points)
 		if tracking != null:
 			tracking.shot(hit, shot.time, roundi(weapon.interval_usec * 1.5))
 		if hit:
@@ -244,6 +257,8 @@ func _physics_process(delta: float) -> void:
 			result.longest_streak_seconds = tracking.longest_usec / 1000000.0
 		if target_group != null and target_group.switching:
 			result.switches_completed = stats.reactions
+		if humanoid != null:
+			result.hit_regions = humanoid_hits.duplicate()
 		completed.emit(result)
 		return
 	if (strafe != null or fixed_motion != null) and not paused and not spawn_pending:
@@ -358,7 +373,10 @@ func _update_weapon_hud(elapsed: int) -> void:
 func _spawn_target(timestamp: int) -> void:
 	var options: Dictionary = scenario.target
 	var origin := spawn_eye
-	if fixed_motion != null:
+	if humanoid != null:
+		var x := origin.x + rng.randf_range(-options.x_extent, options.x_extent)
+		arena.target.position = Vector3(x, 0.055, origin.z - options.depth)
+	elif fixed_motion != null:
 		arena.target.position = fixed_motion.spawn(origin, rng)
 	else:
 		var x := origin.x + rng.randf_range(-options.x_extent, options.x_extent)
@@ -370,7 +388,7 @@ func _spawn_target(timestamp: int) -> void:
 	if strafe != null:
 		strafe.spawn(1.0 if rng.randf() < 0.5 else -1.0)
 		strafe.reset_motion(arena.target.position.y, rng)
-	if strafe != null or fixed_motion != null:
+	if strafe != null or fixed_motion != null or humanoid != null:
 		arena.target.force_update_transform()
 	arena.target.show()
 	target_since = timestamp
@@ -458,7 +476,7 @@ func _build_hud() -> void:
 	row.add_theme_constant_override("separation", 22)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(row)
-	var title := Style.label(scenario.name, 23)
+	var title := Style.label("テストプレイ  ·  " + scenario.name if editor_test else scenario.name, 23)
 	if custom != null:
 		title.custom_minimum_size.x = 220
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -493,12 +511,16 @@ func _build_hud() -> void:
 	var controls := "左クリック  射撃"
 	if _has_ads():
 		controls += "    右クリック  ADS"
-	controls += "    Esc  ポーズ"
+	controls += "    %s  ポーズ" % bindings.label(Bindings.PAUSE)
 	if target_group != null and target_group.switching:
 		controls = "▼ のダミーを狙う    " + controls
 	if player != null:
-		controls = "WASD  移動    Space  ジャンプ    Shift  スプリント    Ctrl / C  しゃがみ\n" + controls
+		controls = "%s / %s / %s / %s  前後左右    %s  ジャンプ    %s  スプリント    %s / %s  しゃがみ\n" % [
+			bindings.label(&"move_forward"), bindings.label(&"move_back"), bindings.label(&"move_left"),
+			bindings.label(&"move_right"), bindings.label(&"move_jump"), bindings.label(&"move_sprint"),
+			bindings.label(&"move_crouch"), bindings.label(&"move_crouch_alt")] + controls
 	var help := Style.label(controls, 17, Style.MUTED)
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(help)
 	fps = Style.label("FPS", 17, Style.MUTED)
@@ -533,8 +555,8 @@ func _build_weapon_hud(column: VBoxContainer) -> void:
 	var strip := HBoxContainer.new()
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(strip)
-	if custom != null:
-		hud_target = Style.label("", 16)
+	if custom != null or humanoid != null:
+		hud_target = Style.label("命中部位  —" if humanoid != null else "", 16)
 		strip.add_child(hud_target)
 	elif strafe != null or tracking != null:
 		_build_target_meter(strip)

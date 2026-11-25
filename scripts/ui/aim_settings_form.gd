@@ -4,7 +4,7 @@ const Aim = preload("res://scripts/input/aim_settings.gd")
 const Style = preload("res://scripts/ui/style.gd")
 const CAPTIONS := {
 	"sensitivity": "マウス感度", "horizontal": "水平倍率", "vertical": "垂直倍率",
-	"vertical_fov": "垂直 FOV（°）", "dpi": "マウス DPI"
+	"vertical_fov": "垂直 FOV（°）"
 }
 
 var settings: Aim
@@ -42,6 +42,17 @@ func _init(profile: Aim, form: VBoxContainer, reading: Label) -> void:
 	var update_axes := func() -> void:
 		fields.horizontal.get_parent().visible = values.preset == "generic"
 		fields.vertical.get_parent().visible = values.preset == "generic"
+	var dpi := OptionButton.new()
+	dpi.name = "MouseDpi"
+	dpi.custom_minimum_size = Vector2(174, 36)
+	for option: int in Aim.DPI_OPTIONS:
+		dpi.add_item(str(option), option)
+	dpi.select(dpi.get_item_index(int(values.dpi)))
+	Style.field(form, "マウス DPI", dpi)
+	dpi.item_selected.connect(func(index: int) -> void:
+		values.dpi = dpi.get_item_id(index)
+		update_distance.call()
+	)
 	presets.item_selected.connect(func(index: int) -> void:
 		var sensitivity: SpinBox = fields.sensitivity
 		sensitivity.apply()

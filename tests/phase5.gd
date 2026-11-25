@@ -119,7 +119,8 @@ func _valid_group_positions(group: TargetGroup, tuning: Dictionary) -> bool:
 
 
 func _test_group(studio: Studio) -> void:
-	_press(studio, "標準練習モード")
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	await process_frame
 	await process_frame
 	var last := _button(studio, "Target Switching")
@@ -228,7 +229,9 @@ func _test_tracking(studio: Studio, title: String) -> void:
 
 
 func _pick(studio: Studio, caption: String) -> void:
-	_press(studio, "標準練習モード")
+	_press(studio, "練習モード")
+	var category := "フリック" if caption == "Target Switching" else "トラッキング"
+	_press(studio, category)
 	_press(studio, caption)
 
 

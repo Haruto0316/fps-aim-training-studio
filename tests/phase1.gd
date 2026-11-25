@@ -43,7 +43,8 @@ func _test_data() -> void:
 	_check(Store.write(path, {"schema_version": 1, "preset": "unknown", "dpi": 0, "sensitivity": "junk"}) == OK, "overwrite JSON")
 	var settings := Aim.new(path)
 	_check(settings.values.preset == "generic", "unknown preset falls back")
-	_check(settings.values.dpi == 100 and settings.values.sensitivity == settings.defaults.sensitivity, "safe settings limits and defaults")
+	_check(settings.values.dpi == 800 and settings.values.sensitivity == settings.defaults.sensitivity, "safe settings limits and defaults")
+	_check(settings.validate({"schema_version": 1, "dpi": 1200}).dpi == 1000, "legacy DPI migrates to the closest preset")
 	var migrated := settings.validate({"schema_version": 1, "preset": "apex", "sensitivity": 2.25})
 	_check(migrated.sensitivity_by_preset == {"generic": 0.035, "valorant": 0.5, "apex": 2.25},
 		"legacy sensitivity is retained for its selected preset only")
@@ -124,7 +125,7 @@ func _test_playthrough() -> void:
 	await process_frame
 	_press(studio, "設定")
 	var settings_inputs := studio.find_children("*", "SpinBox", true, false)
-	_check(settings_inputs.size() == 5, "settings form")
+	_check(settings_inputs.size() == 4, "settings form")
 	var base: SpinBox = settings_inputs[0]
 	var preset: OptionButton = studio.page.find_child("SensitivityPreset", true, false)
 	base.get_line_edit().text = "0.048"
@@ -138,13 +139,17 @@ func _test_playthrough() -> void:
 	_select_preset(preset, 0)
 	_check(is_equal_approx(base.value, 0.048) and settings_inputs[1].get_parent().visible, "generic sensitivity and axis options return")
 	settings_inputs[3].get_line_edit().text = "70"
+	var dpi: OptionButton = studio.page.find_child("MouseDpi", true, false)
+	dpi.select(3)
+	dpi.item_selected.emit(3)
 	_press(studio, "保存してホームへ")
 	var settings := Aim.new(studio.aim.save_path)
-	_check(is_equal_approx(settings.values.sensitivity, 0.048) and settings.values.vertical_fov == 70.0, "settings save via UI and reload")
+	_check(is_equal_approx(settings.values.sensitivity, 0.048) and settings.values.vertical_fov == 70.0 and settings.values.dpi == 1600, "settings save via UI and reload")
 	_check(is_equal_approx(settings.values.sensitivity_by_preset.valorant, 0.315)
 		and is_equal_approx(settings.values.sensitivity_by_preset.apex, 1.85), "both other presets survive save and reload")
 
-	_press(studio, "標準練習モード")
+	_press(studio, "練習モード")
+	_press(studio, "フリック")
 	_press(studio, "Static Clicking")
 	var options := studio.find_children("*", "SpinBox", true, false)
 	options[0].get_line_edit().text = "5"

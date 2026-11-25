@@ -9,6 +9,7 @@ const Movement = preload("res://scripts/movement/movement_settings.gd")
 const Store = preload("res://scripts/persistence/json_store.gd")
 const Custom = preload("res://scripts/scenarios/custom_scenario.gd")
 const Draft = preload("res://scripts/editor/editor_draft.gd")
+const Bindings = preload("res://scripts/input/movement_bindings.gd")
 const PASSWORD := "example password 123"
 
 var failures: Array[String] = []
@@ -41,11 +42,15 @@ func _run() -> void:
 	var guest_movement := studio.movement.values.duplicate()
 	guest_movement.walk_speed = 4.0
 	_check(studio.movement.save(guest_movement) == OK, "save guest movement")
+	var guest_keys := studio.bindings.values.duplicate()
+	guest_keys.move_forward = KEY_UP
+	_check(studio.bindings.save(guest_keys) == OK, "save guest key assignment")
 	var guest_draft := Draft.new()
 	studio.editor_draft = guest_draft
 	var guest_document := guest_draft.document()
 	_check(Custom.save(guest_document, studio.custom_library_dir) == OK, "save a guest scenario")
 
+	_button(studio, "設定").pressed.emit()
 	_button(studio, "アカウント · ゲスト").pressed.emit()
 	var form := _account_form(studio)
 	form.change_form.pressed.emit()
@@ -75,6 +80,7 @@ func _run() -> void:
 		and not FileAccess.get_file_as_string(record_path).contains(PASSWORD), "only the salted verifier is stored")
 	_check(studio._best() == -1 and studio.aim.values.sensitivity == studio.aim.defaults.sensitivity
 		and studio.movement.values.walk_speed == studio.movement.defaults.walk_speed
+		and studio.bindings.values.move_forward == KEY_W
 		and studio.editor_draft == null and Custom.catalogue(studio.custom_library_dir).is_empty(), "new account starts with an independent profile")
 	var aim := studio.aim.values.duplicate()
 	aim.sensitivity = 0.62
@@ -82,17 +88,23 @@ func _run() -> void:
 	var movement := studio.movement.values.duplicate()
 	movement.walk_speed = 5.0
 	_check(studio.movement.save(movement) == OK, "save account movement")
+	var account_keys := studio.bindings.values.duplicate()
+	account_keys.move_forward = KEY_I
+	_check(studio.bindings.save(account_keys) == OK, "save account key assignment")
 	_check(Store.write(studio.best_path, {"schema_version": 1, "scores": {guest_key: 650}}) == OK, "save account score")
 	var account_draft := Draft.new()
 	_check(Custom.save(account_draft.document(), studio.custom_library_dir) == OK, "save account scenario")
 
+	_button(studio, "設定").pressed.emit()
 	_button(studio, "アカウント · 練習_Player").pressed.emit()
 	_button(studio, "ログアウト").pressed.emit()
 	_check(studio.account_name.is_empty() and studio._best() == 250 and studio.aim.values.sensitivity == 0.17
 		and studio.movement.values.walk_speed == 4.0 and studio.editor_draft == guest_draft
+		and studio.bindings.values.move_forward == KEY_UP
 		and Custom.catalogue(studio.custom_library_dir)[0].id == guest_document.id, "logout restores guest data and draft")
 	studio.free()
 	studio = _new_studio()
+	_button(studio, "設定").pressed.emit()
 	_button(studio, "アカウント · ゲスト").pressed.emit()
 	form = _account_form(studio)
 	form.username.text = "練習_player"
@@ -108,6 +120,7 @@ func _run() -> void:
 	await _wait_for(form)
 	_check(studio.account_name == "練習_Player" and studio.account_directory == profile_dir, "registered account logs in after restarting the studio")
 	_check(studio._best() == 650 and studio.aim.values.sensitivity == 0.62 and studio.movement.values.walk_speed == 5.0
+		and studio.bindings.values.move_forward == KEY_I
 		and Custom.catalogue(studio.custom_library_dir)[0].id == account_draft.config.id, "login reloads the registered account's data")
 	await _check_concurrent_registration(studio.accounts)
 	var account_scenarios := studio.custom_library_dir
@@ -148,6 +161,7 @@ func _new_studio() -> Studio:
 	studio.accounts = Accounts.new(test_dir.path_join("accounts"))
 	studio.aim = Aim.new(test_dir.path_join("guest-aim.json"))
 	studio.movement = Movement.new(test_dir.path_join("guest-movement.json"))
+	studio.bindings = Bindings.new(test_dir.path_join("guest-key-bindings.json"))
 	studio.best_path = test_dir.path_join("guest-best.json")
 	studio.custom_library_dir = test_dir.path_join("guest-scenarios")
 	root.add_child(studio)

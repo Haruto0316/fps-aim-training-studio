@@ -8,7 +8,10 @@ const Store = preload("res://scripts/persistence/json_store.gd")
 const Style = preload("res://scripts/ui/style.gd")
 const TargetArt = preload("res://scripts/ui/target_art.gd")
 const Preview = preload("res://scripts/ui/drill_preview.gd")
+const Humanoid = preload("res://scripts/targets/humanoid_dummy.gd")
 const MovementSettings = preload("res://scripts/movement/movement_settings.gd")
+const Bindings = preload("res://scripts/input/movement_bindings.gd")
+const KeyBindingsForm = preload("res://scripts/ui/key_bindings_form.gd")
 const Editor = preload("res://scripts/editor/editor_page.gd")
 const EditorDraft = preload("res://scripts/editor/editor_draft.gd")
 const Custom = preload("res://scripts/scenarios/custom_scenario.gd")
@@ -18,6 +21,7 @@ const BEST_PATH := "user://best_scores.json"
 
 var aim := Setting.new()
 var movement := MovementSettings.new()
+var bindings := Bindings.new()
 var standard := Scenario.load_static()
 var movement_mode := Scenario.load_movement()
 var strafe_mode := Scenario.load_strafe()
@@ -41,36 +45,25 @@ var profile_drafts := {}
 func _ready() -> void:
 	get_window().min_size = Vector2i(880, 540)
 	theme = Style.create_theme()
-	guest_paths = {"aim": aim.save_path, "movement": movement.save_path, "best": best_path, "scenarios": custom_library_dir}
+	guest_paths = {"aim": aim.save_path, "movement": movement.save_path, "bindings": bindings.save_path,
+		"best": best_path, "scenarios": custom_library_dir}
 	_load_best_scores()
 	selected = _default_selection()
 	show_home()
 
 
 func show_home() -> void:
-	var identity := "ゲスト" if account_name.is_empty() else account_name
-	var short_identity := identity.left(14) + "…" if identity.length() > 14 else identity
-	var account_button := Style.button("アカウント · " + short_identity, show_account)
-	account_button.tooltip_text = identity
-	var body := _new_page("ホーム", Callable(), account_button)
+	var body := _new_page("ホーム")
 	var split := _split(body, 48)
-	var menu := Style.stack(5)
+	var menu := Style.stack(10)
 	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	split.add_child(menu)
 	menu.add_child(Style.label("エイム練習", 53))
 	var description := Style.label("静止・移動ターゲットでエイムを練習し、命中率と反応時間を測ります。", 20, Style.MUTED)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	menu.add_child(description)
-	if not selected.is_empty():
-		menu.add_child(Style.button("練習開始", _start, true))
-	menu.add_child(Style.button("標準練習モード", show_standard_drills))
-	if not movement_mode.is_empty():
-		menu.add_child(Style.button("移動練習", show_mode.bind(movement_mode, "移動練習")))
-	if not strafe_mode.is_empty():
-		menu.add_child(Style.button("移動ダミー撃破", show_mode.bind(strafe_mode, "移動ダミー撃破")))
-	menu.add_child(Style.button("移動型ドリル", show_mobile_drills))
-	menu.add_child(Style.button("3D エディター", show_editor))
-	menu.add_child(Style.button("カスタム練習", show_custom_library))
+	menu.add_child(Style.button("練習モード", show_practice_modes, true))
 	menu.add_child(Style.button("設定", show_settings))
 	menu.add_child(Style.button("終了", func() -> void: get_tree().quit()))
 	var art := TargetArt.new()
@@ -99,10 +92,12 @@ func _change_account(username: String, directory: String) -> void:
 	account_directory = directory
 	var paths := guest_paths if directory.is_empty() else {
 		"aim": directory.path_join("settings.json"), "movement": directory.path_join("movement.json"),
+		"bindings": directory.path_join("key_bindings.json"),
 		"best": directory.path_join("best_scores.json"), "scenarios": directory.path_join("scenarios")
 	}
 	aim = Setting.new(paths.aim)
 	movement = MovementSettings.new(paths.movement)
+	bindings = Bindings.new(paths.bindings)
 	best_path = paths.best
 	custom_library_dir = paths.scenarios
 	_load_best_scores()
@@ -145,7 +140,7 @@ func show_editor() -> void:
 
 
 func show_custom_library(message := "") -> void:
-	var body := _new_page("カスタム練習", show_home)
+	var body := _new_page("カスタム練習", show_practice_modes, null, "戻る")
 	if not message.is_empty():
 		body.add_child(Style.label(message, 16, Style.ACCENT))
 	var documents := Custom.catalogue(custom_library_dir)
@@ -226,29 +221,47 @@ func _confirm_custom(title: String, message: String, action: Callable) -> void:
 	dialog.popup_centered()
 
 
-func show_mobile_drills() -> void:
+func show_practice_modes() -> void:
+	var body := _new_page("練習モード", show_home)
+	var center := CenterContainer.new()
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(center)
+	var choices := Style.panel(center, 24)
+	choices.custom_minimum_size.x = 340
+	choices.add_child(Style.button("トラッキング", show_tracking_drills))
+	choices.add_child(Style.button("フリック", show_flick_drills))
+	choices.add_child(Style.button("カスタム練習", show_custom_library))
+
+
+func show_tracking_drills() -> void:
 	var drills: Array[Dictionary] = []
+	for id: String in Scenario.FIXED_TRACKING:
+		drills.append(Scenario.load_standard_drill(id))
 	for id: String in Scenario.MOBILE_DRILLS:
 		drills.append(Scenario.load_mobile_drill(id))
-	_show_drill_list("移動型ドリル", drills)
+	drills.append(strafe_mode)
+	_show_drill_list("トラッキング", drills, show_tracking_drills)
 
 
-func show_standard_drills() -> void:
-	var drills: Array[Dictionary] = [standard]
-	for id: String in Scenario.STANDARD_DRILLS:
+func show_flick_drills() -> void:
+	var drills: Array[Dictionary] = [standard, Scenario.load_apex_humanoid()]
+	for id: String in Scenario.TARGET_GROUPS:
 		drills.append(Scenario.load_standard_drill(id))
-	_show_drill_list("標準練習モード", drills)
+	drills.append(movement_mode)
+	_show_drill_list("フリック", drills, show_flick_drills)
 
 
-func _show_drill_list(title: String, drills: Array[Dictionary]) -> void:
-	var body := _new_page(title, show_home)
+func _show_drill_list(title: String, drills: Array[Dictionary], return_to_list: Callable) -> void:
+	var custom_button := Style.button("カスタム練習", show_custom_library)
+	var body := _new_page(title, show_practice_modes, custom_button, "戻る")
+	var captions := {"movement_practice": "移動練習", "strafe_elimination": "移動ダミー撃破"}
 	body.add_theme_constant_override("separation", 10)
 	for definition in drills:
 		if definition.is_empty():
 			continue
 		var card := _preview_card(body, mode_options.get(definition.id, definition), Vector2(176, 66), 9)
 		card.add_theme_constant_override("separation", 5)
-		card.add_child(Style.button(definition.name, show_mode.bind(definition, title)))
+		card.add_child(Style.button(captions.get(definition.type, definition.name), show_mode.bind(definition, title, return_to_list)))
 		var summary := Style.label(definition.description, 17, Style.MUTED)
 		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card.add_child(summary)
@@ -266,11 +279,12 @@ func _preview_card(body: VBoxContainer, definition: Dictionary, minimum: Vector2
 	return card
 
 
-func show_mode(definition: Dictionary, page_title: String) -> void:
+func show_mode(definition: Dictionary, page_title: String, back: Callable) -> void:
 	var mobile: bool = definition.player.movement_enabled
 	var armed: bool = definition.target.has("health")
+	var humanoid: bool = definition.type == Scenario.APEX_HUMANOID
 	selected = mode_options.get(definition.id, definition)
-	var body := _new_page(page_title, show_home)
+	var body := _new_page(page_title, back, null, "戻る")
 	body.add_child(Style.label(definition.name, 43))
 	var split := _split(body, 22)
 	var details := Style.panel(split, 24)
@@ -285,7 +299,8 @@ func show_mode(definition: Dictionary, page_title: String) -> void:
 	var best := Style.label("", 22)
 	details.add_child(best)
 	if mobile:
-		var help := "左クリックで射撃、右クリック長押しで ADS。" if armed else "スプリント中に Ctrl または C を押すとスライドします。"
+		var help := "左クリックで射撃、右クリック長押しで ADS。" if armed else "スプリント中に %s または %s を押すとスライドします。" % [
+			bindings.label(&"move_crouch"), bindings.label(&"move_crouch_alt")]
 		var hint := Style.label(help, 17, Style.MUTED)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		details.add_child(hint)
@@ -293,15 +308,22 @@ func show_mode(definition: Dictionary, page_title: String) -> void:
 		var hint := Style.label("ダミーが重ならないよう、数と大きさに応じて最小範囲を調整します。", 17, Style.MUTED)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		details.add_child(hint)
+	if humanoid:
+		details.add_child(Style.label(_humanoid_region_summary(definition.scoring.hit_regions, "点"), 17, Style.ACCENT))
 	var options := Style.panel(split, 20)
 	options.get_parent().size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	options.add_theme_constant_override("separation", 6)
 	options.add_child(Style.label("練習条件", 24))
 	var duration := _field(options, "練習時間（秒）", selected.duration_seconds, Scenario.DURATION_LIMITS + [1])
-	var radius := _field(options, "ダミーの大きさ（半径 m）", selected.target.radius, Scenario.TARGET_LIMITS.radius)
+	var size_key := "height" if humanoid else "radius"
+	var size_label := "ダミーの高さ（m）" if humanoid else "ダミーの大きさ（半径 m）"
+	var size_limits: Array = Scenario.HUMANOID_HEIGHT_LIMITS if humanoid else Scenario.TARGET_LIMITS.radius
+	var dummy_size := _field(options, size_label, selected.target[size_key], size_limits)
 	var x_caption := "左右の移動範囲 ±m" if armed else "左右の出現範囲 ±m"
 	var x_extent := _field(options, x_caption, selected.target.x_extent, Scenario.TARGET_LIMITS.x_extent)
-	var y_extent := _field(options, "上下の出現範囲 ±m", selected.target.y_extent, Scenario.TARGET_LIMITS.y_extent)
+	var y_extent: SpinBox
+	if not humanoid:
+		y_extent = _field(options, "上下の出現範囲 ±m", selected.target.y_extent, Scenario.TARGET_LIMITS.y_extent)
 	var fire_mode: OptionButton
 	var recoil: OptionButton
 	var target_speed: SpinBox
@@ -333,9 +355,10 @@ func show_mode(definition: Dictionary, page_title: String) -> void:
 		recoil.select(recoil_multipliers.find(multiplier))
 		Style.field(options, "反動", recoil)
 	var refresh := func(_value: float) -> void:
-		var target_options := {
-			"radius": radius.value, "x_extent": x_extent.value, "y_extent": y_extent.value
-		}
+		var target_options := {"x_extent": x_extent.value}
+		target_options[size_key] = dummy_size.value
+		if y_extent != null:
+			target_options.y_extent = y_extent.value
 		if target_speed != null:
 			target_options.speed = target_speed.value
 		if target_count != null:
@@ -359,7 +382,9 @@ func show_mode(definition: Dictionary, page_title: String) -> void:
 		preview.queue_redraw()
 		var record := _best()
 		best.text = "自己ベスト  %d 点" % record if record >= 0 else "自己ベスト  —"
-	var option_fields: Array[SpinBox] = [duration, radius, x_extent, y_extent]
+	var option_fields: Array[SpinBox] = [duration, dummy_size, x_extent]
+	if y_extent != null:
+		option_fields.append(y_extent)
 	if target_speed != null:
 		option_fields.append(target_speed)
 	if target_count != null:
@@ -396,6 +421,12 @@ func show_settings() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	distance.add_child(note)
 	distance.add_child(Style.button("移動設定", show_movement_settings))
+	distance.add_child(Style.button("キー設定", show_key_settings))
+	var identity := "ゲスト" if account_name.is_empty() else account_name
+	var short_identity := identity.left(14) + "…" if identity.length() > 14 else identity
+	var account_button := Style.button("アカウント · " + short_identity, show_account)
+	account_button.tooltip_text = identity
+	distance.add_child(account_button)
 	var settings := AimForm.new(aim, form, reading)
 	var status := Style.label("", 17, Style.ACCENT)
 	body.add_child(status)
@@ -406,6 +437,15 @@ func show_settings() -> void:
 		else:
 			status.text = "設定を保存できませんでした（%s）。" % error_string(error)
 	, true))
+
+
+func show_key_settings() -> void:
+	var body := _new_page("キー設定", show_settings, null, "戻る")
+	var form := KeyBindingsForm.new()
+	form.name = "KeyBindingsForm"
+	form.bindings = bindings
+	form.saved.connect(show_settings)
+	body.add_child(form)
 
 
 func show_movement_settings() -> void:
@@ -460,10 +500,14 @@ func _open_round(document: Dictionary, test_run: bool) -> void:
 	session.scenario = document.duplicate(true)
 	session.editor_test = test_run
 	session.movement_tuning = movement.values.duplicate()
+	session.bindings = bindings
 	session.aim = aim
 	if test_run:
 		session.completed.connect(_finish_editor_test)
-		session.abandoned.connect(show_editor)
+		session.abandoned.connect(func() -> void:
+			editor_note = "テストプレイを終了しました。"
+			show_editor()
+		)
 		session.restart_requested.connect(_open_round.bind(document, true))
 	else:
 		session.completed.connect(_show_result)
@@ -511,6 +555,8 @@ func _show_result(result: Dictionary) -> void:
 	elif selected.type == "custom" or selected.target.has("health"):
 		var elimination_time := "—" if result.elimination_ms == null else "%.0f ms" % result.elimination_ms
 		details.add_child(Style.label("撃破 %d    平均撃破時間 %s" % [result.eliminations, elimination_time], 20))
+	elif result.has("hit_regions"):
+		details.add_child(Style.label(_humanoid_region_summary(result.hit_regions, "回"), 20))
 	if save_error != OK:
 		details.add_child(Style.label("自己ベストを保存できませんでした（%s）。" % error_string(save_error), 17, Style.ACCENT))
 	elif new_best:
@@ -522,6 +568,13 @@ func _show_result(result: Dictionary) -> void:
 	body.add_child(buttons)
 	buttons.add_child(Style.button("リトライ", _start, true))
 	buttons.add_child(Style.button("メニューへ戻る", show_home))
+
+
+func _humanoid_region_summary(values: Dictionary, unit: String) -> String:
+	var parts: PackedStringArray = []
+	for region: String in Humanoid.LABELS:
+		parts.append("%s %d%s" % [Humanoid.LABELS[region], values.get(region, 0), unit])
+	return "    ".join(parts)
 
 
 func _best() -> int:
@@ -556,7 +609,7 @@ func _clear_screen() -> void:
 		page = null
 
 
-func _new_page(title: String, back := Callable(), header_action: Button = null) -> VBoxContainer:
+func _new_page(title: String, back := Callable(), header_action: Button = null, back_caption := "ホーム") -> VBoxContainer:
 	_clear_screen()
 	page = ColorRect.new()
 	page.color = Style.INK
@@ -574,10 +627,10 @@ func _new_page(title: String, back := Callable(), header_action: Button = null) 
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(brand)
 	header.add_child(Style.label(title, 18, Style.MUTED))
-	if back.is_valid():
-		header.add_child(Style.button("ホーム", back))
 	if header_action != null:
 		header.add_child(header_action)
+	if back.is_valid():
+		header.add_child(Style.button(back_caption, back))
 	var separator := HSeparator.new()
 	var rule := StyleBoxLine.new()
 	rule.color = Style.EDGE

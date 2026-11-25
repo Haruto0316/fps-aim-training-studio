@@ -7,6 +7,7 @@ var reactions := 0
 var eliminations := 0
 var elimination_total_usec := 0
 var points_per_hit: int
+var hit_points := 0
 var points_per_elimination: int
 
 
@@ -15,10 +16,11 @@ func _init(points: int, bonus := 0) -> void:
 	points_per_elimination = bonus
 
 
-func register_shot(hit: bool, reaction_usec: int) -> void:
+func register_shot(hit: bool, reaction_usec: int, points := -1) -> void:
 	shots += 1
 	if hit:
 		hits += 1
+		hit_points += points_per_hit if points < 0 else points
 		if reaction_usec >= 0:
 			reactions += 1
 			reaction_total_usec += reaction_usec
@@ -30,7 +32,7 @@ func register_elimination(elapsed_usec: int) -> void:
 
 
 func score() -> int:
-	return hits * points_per_hit + eliminations * points_per_elimination
+	return hit_points + eliminations * points_per_elimination
 
 
 func accuracy() -> float:

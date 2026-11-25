@@ -8,6 +8,8 @@ const TRACKING_CARBINE := "res://resources/presets/tracking_carbine.json"
 const MOBILE_DRILLS := ["strafe_tracking", "cover_tracking", "movement_tracking", "elimination_training"]
 const FIXED_TRACKING := ["smooth_tracking", "reactive_tracking"]
 const TARGET_GROUPS := ["multi_target", "target_switching"]
+const APEX_HUMANOID := "apex_humanoid"
+const HUMANOID_HEIGHT_LIMITS := [0.8, 2.6, 0.05]
 const STANDARD_DRILLS := ["multi_target", "smooth_tracking", "reactive_tracking", "target_switching"]
 const SMOOTH_PATTERNS := {"horizontal": "左右", "vertical": "上下", "circle": "円運動"}
 const COUNT_LIMITS := [2, 8, 1]
@@ -24,6 +26,10 @@ const RECOIL_PRESETS := {"なし": 0.0, "小": 1.0, "中": 1.5, "大": 2.0}
 
 static func load_static(path := STATIC_CLICKING) -> Dictionary:
 	return _load(path, "static_clicking", false)
+
+
+static func load_apex_humanoid() -> Dictionary:
+	return _load("res://resources/scenarios/apex_humanoid.json", APEX_HUMANOID, false)
 
 
 static func load_movement(path := MOVEMENT_PRACTICE) -> Dictionary:
@@ -198,6 +204,8 @@ static func with_options(base: Dictionary, duration: Variant, target_options: Di
 	for key: String in TARGET_LIMITS:
 		var limits: Array = TARGET_LIMITS[key]
 		scenario.target[key] = Store.number(target_options.get(key), defaults[key], limits[0], limits[1])
+	if scenario.type == APEX_HUMANOID:
+		scenario.target.height = Store.number(target_options.get("height"), 1.8, HUMANOID_HEIGHT_LIMITS[0], HUMANOID_HEIGHT_LIMITS[1])
 	if scenario.type in TARGET_GROUPS:
 		var target: Dictionary = scenario.target
 		target.count = int(Store.number(target_options.get("count"), 4, COUNT_LIMITS[0], COUNT_LIMITS[1]))

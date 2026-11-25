@@ -31,6 +31,10 @@ var library_dir := Custom.DIRECTORY
 var initial_view := {}
 var note := ""
 var status: Label
+var save_state: Label
+var notice_panel: PanelContainer
+var notice: Label
+var notice_timer: Timer
 var route_controls: VBoxContainer
 var route_row := -1
 var preview_route := false
@@ -53,6 +57,8 @@ func _ready() -> void:
 		view.distance = initial_view.distance
 		view._update_camera()
 		_select(initial_view.selected)
+	if not note.is_empty():
+		_notify(note)
 
 
 func _build_page() -> void:
@@ -97,9 +103,63 @@ func _build_page() -> void:
 	_build_object_list(columns)
 	_build_view(columns)
 	_build_inspector_panel(columns)
-	status = Style.label(note if not note.is_empty() else draft.config.name, 15, Style.MUTED)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	layout.add_child(footer)
+	status = Style.label(draft.config.name, 15, Style.MUTED)
+	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	layout.add_child(status)
+	footer.add_child(status)
+	save_state = Style.label("", 15)
+	footer.add_child(save_state)
+	_update_save_state()
+	_build_notice()
+
+
+func _build_notice() -> void:
+	var overlay := CenterContainer.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	overlay.offset_top = 12
+	overlay.offset_bottom = 12
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.add_child(overlay)
+	var content := Style.panel(overlay, 12)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notice_panel = content.get_parent()
+	notice = Style.label("", 19)
+	notice.custom_minimum_size.x = 360
+	notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(notice)
+	notice_panel.hide()
+	notice_timer = Timer.new()
+	notice_timer.one_shot = true
+	notice_timer.wait_time = 3.5
+	notice_timer.timeout.connect(notice_panel.hide)
+	add_child(notice_timer)
+
+
+func _notify(message: String, warning := false) -> void:
+	status.text = message
+	notice.text = message
+	var color := Style.ACCENT if warning else Color("#91e2c4")
+	var surface := Style.flat(Style.INK, color, 10)
+	surface.content_margin_left = 14
+	surface.content_margin_right = 14
+	surface.content_margin_top = 10
+	surface.content_margin_bottom = 10
+	notice_panel.add_theme_stylebox_override("panel", surface)
+	notice.add_theme_color_override("font_color", color)
+	notice_panel.show()
+	notice_timer.start()
+
+
+func _update_save_state() -> void:
+	var dirty := draft.is_dirty()
+	var saved := not dirty and FileAccess.file_exists(library_dir.path_join(draft.config.id + ".json"))
+	save_state.text = "未保存の変更あり" if dirty else ("保存済み" if saved else "未保存")
+	save_state.add_theme_color_override("font_color", Style.MUTED if saved else Style.ACCENT)
 
 
 func _build_object_list(parent: Control) -> void:
@@ -116,7 +176,10 @@ func _build_object_list(parent: Control) -> void:
 	objects.allow_reselect = true
 	objects.item_selected.connect(func(index: int) -> void: _select(objects.get_item_metadata(index)))
 	panel.add_child(objects)
-	panel.add_child(Style.button("マップ設定", _select.bind(0)))
+	panel.add_child(Style.button("マップ設定", func() -> void:
+		_select(0)
+		_notify("マップ設定を表示しました。")
+	))
 
 
 func _build_view(parent: Control) -> void:
@@ -142,7 +205,10 @@ func _build_view(parent: Control) -> void:
 	var snap := CheckButton.new()
 	snap.text = "スナップ 0.5 m"
 	snap.button_pressed = true
-	snap.toggled.connect(func(enabled: bool) -> void: view.snap = enabled)
+	snap.toggled.connect(func(enabled: bool) -> void:
+		view.snap = enabled
+		_notify("0.5 m スナップを有効にしました。" if enabled else "スナップを無効にしました。")
+	)
 	commands.add_child(snap)
 	view = EditorView.new()
 	view.custom_minimum_size = Vector2(270, 260)
@@ -150,6 +216,7 @@ func _build_view(parent: Control) -> void:
 	view.picked.connect(_select)
 	view.moved.connect(func(id: int, position: Vector3) -> void:
 		draft.edit(id, {"position": Draft.coordinates(position)})
+		_notify("オブジェクトを移動しました。")
 	)
 	middle.add_child(view)
 	var help := Style.label("左ドラッグ  移動    右ドラッグ  回転    中ドラッグ  パン\nホイール  ズーム    F  選択に寄る    X / Y / Z  軸を切替", 14, Style.MUTED)
@@ -301,6 +368,7 @@ func _on_changed(id: int) -> void:
 		_sync_inspector()
 	_refresh_route()
 	_update_actions()
+	_update_save_state()
 
 
 func _sync_inspector() -> void:
@@ -364,6 +432,7 @@ func _on_replaced() -> void:
 	_refresh_route()
 	_update_actions()
 	status.text = draft.config.name
+	_update_save_state()
 
 
 func _refresh_route() -> void:
@@ -430,6 +499,7 @@ func _refresh_route() -> void:
 		current.append(choices.get_selected_id())
 		route_row = current.size() - 1
 		draft.edit(entry.id, {"route_points": current})
+		_notify("通過点をルートに追加しました。")
 	)
 	attach.disabled = choices.item_count == 0 or current.size() >= Custom.ROUTE_LIMIT
 	route_controls.add_child(attach)
@@ -440,7 +510,10 @@ func _refresh_route() -> void:
 		check.text = item[0]
 		check.button_pressed = entry[item[1]]
 		var key: String = item[1]
-		check.toggled.connect(func(value: bool) -> void: draft.edit(entry.id, {key: value}))
+		check.toggled.connect(func(value: bool) -> void:
+			draft.edit(entry.id, {key: value})
+			_notify("ルートの設定を変更しました。")
+		)
 		route_controls.add_child(check)
 	var path := Route.new(entry, draft.objects)
 	var preview := CheckButton.new()
@@ -450,6 +523,7 @@ func _refresh_route() -> void:
 	preview.toggled.connect(func(value: bool) -> void:
 		preview_route = value
 		view.show_route(path, entry, value)
+		_notify("移動プレビューを開始しました。" if value else "移動プレビューを停止しました。")
 	)
 	route_controls.add_child(preview)
 	view.show_route(path, entry, preview_route)
@@ -457,6 +531,7 @@ func _refresh_route() -> void:
 
 func _change_route(id: int, points: Array, offset: int) -> void:
 	if route_row < 0 or route_row >= points.size():
+		_notify("ルート一覧で通過点を選んでください。", true)
 		return
 	var destination := route_row + offset
 	if offset == 0:
@@ -466,28 +541,31 @@ func _change_route(id: int, points: Array, offset: int) -> void:
 		points.insert(destination, point)
 		route_row = destination
 	else:
+		_notify("通過点はこれ以上移動できません。", true)
 		return
 	draft.edit(id, {"route_points": points})
+	_notify("通過点をルートから外しました。" if offset == 0 else "通過点の順番を変更しました。")
 
 
 func _new_document() -> void:
-	_replace_document(Draft.new().document())
+	_replace_document(Draft.new().document(), "新しい下書きを作成しました。")
 
 
 func _save() -> Error:
 	var error := Custom.save(draft.document(), library_dir)
 	if error == OK:
 		draft.mark_saved()
-		status.text = "保存しました  " + draft.config.name
+		_update_save_state()
+		_notify("保存しました。")
 	else:
-		status.text = "保存できませんでした  " + error_string(error)
+		_notify("保存できませんでした（%s）。" % error_string(error), true)
 	return error
 
 
 func _choose_saved() -> void:
 	var entries := Custom.catalogue(library_dir)
 	if entries.is_empty():
-		status.text = "保存済みのシナリオがありません。"
+		_notify("保存済みのシナリオがありません。", true)
 		return
 	var dialog := ConfirmationDialog.new()
 	dialog.title = "保存済みシナリオ"
@@ -501,15 +579,16 @@ func _choose_saved() -> void:
 	_confirm(dialog, func() -> void:
 		var selection := list.get_selected_items()
 		if not selection.is_empty():
-			_replace_document(entries[selection[0]])
+			_replace_document(entries[selection[0]], "シナリオを読み込みました。")
+		else:
+			_notify("読み込むシナリオを選んでください。", true)
 	)
 
 
-func _replace_document(document: Dictionary, loaded_note := "") -> void:
+func _replace_document(document: Dictionary, loaded_note: String) -> void:
 	var apply := func() -> void:
 		draft.replace(document)
-		if not loaded_note.is_empty():
-			status.text = loaded_note
+		_notify(loaded_note)
 	if draft.is_dirty():
 		var dialog := ConfirmationDialog.new()
 		dialog.title = "シナリオを切り替える"
@@ -535,24 +614,24 @@ func _file_dialog(export_file: bool) -> void:
 			_import_path(path)
 		dialog.queue_free()
 	)
-	dialog.canceled.connect(dialog.queue_free)
+	dialog.canceled.connect(_cancel_dialog.bind(dialog))
 	dialog.popup_centered_ratio(0.75)
 
 
 func _export_path(path: String) -> Error:
 	var document := Custom.validate(draft.document())
 	var error := ERR_INVALID_DATA if document.is_empty() else Store.write(path, document, true)
-	status.text = "JSON をエクスポートしました。" if error == OK else "エクスポートできませんでした  " + error_string(error)
+	_notify("JSON をエクスポートしました。" if error == OK else "エクスポートできませんでした（%s）。" % error_string(error), error != OK)
 	return error
 
 
 func _import_path(path: String) -> bool:
 	var document := Custom.load_file(path)
 	if document.is_empty():
-		status.text = "シナリオ JSON が無効か、未対応の形式です。"
+		_notify("シナリオ JSON が無効か、未対応の形式です。", true)
 		return false
 	document.id = Draft.new_id()
-	_replace_document(document, "インポートした下書きは「保存」で一覧に登録できます。")
+	_replace_document(document, "インポートしました。「保存」で一覧に登録できます。")
 	return true
 
 
@@ -560,10 +639,10 @@ func _test_play() -> void:
 	view.cancel_drag()
 	var document := Custom.validate(draft.document())
 	if document.is_empty():
-		status.text = "練習設定やオブジェクトを確認してください。"
+		_notify("練習設定やオブジェクトを確認してください。", true)
 		return
 	if not document.objects.any(func(entry: Dictionary) -> bool: return Draft.is_target(entry.kind)):
-		status.text = "テストプレイにはターゲットを1体以上配置します。"
+		_notify("テストプレイにはターゲットを1体以上配置してください。", true)
 		return
 	test_requested.emit(document)
 
@@ -615,6 +694,7 @@ func _configure() -> void:
 			"duration_seconds": int(duration.value), "player": {"movement_enabled": move.button_pressed},
 			"weapon": weapon, "scoring": {"points_per_hit": int(hit_score.value), "points_per_elimination": int(bonus.value)}
 		})
+		_notify("練習設定を適用しました。")
 	)
 
 
@@ -624,13 +704,18 @@ func _confirm(dialog: ConfirmationDialog, action: Callable) -> void:
 		action.call()
 		dialog.queue_free()
 	)
-	dialog.canceled.connect(dialog.queue_free)
+	dialog.canceled.connect(_cancel_dialog.bind(dialog))
 	dialog.popup_centered()
+
+
+func _cancel_dialog(dialog: AcceptDialog) -> void:
+	_notify("操作をキャンセルしました。")
+	dialog.queue_free()
 
 
 func _add_object() -> void:
 	if draft.objects.size() >= Custom.OBJECT_LIMIT:
-		status.text = "オブジェクトの上限は %d 個です。" % Custom.OBJECT_LIMIT
+		_notify("オブジェクトの上限は %d 個です。" % Custom.OBJECT_LIMIT, true)
 		return
 	var kind: String = Draft.KINDS.keys()[add_menu.selected]
 	var position := view.pivot
@@ -643,28 +728,40 @@ func _add_object() -> void:
 		position.x = snappedf(position.x, 0.5)
 		position.z = snappedf(position.z, 0.5)
 	_select(draft.add(kind, position))
+	_notify("%sを追加しました。" % Draft.KINDS[kind][0])
 
 
 func _duplicate_selected() -> void:
 	if draft.objects.size() >= Custom.OBJECT_LIMIT:
-		status.text = "オブジェクトの上限は %d 個です。" % Custom.OBJECT_LIMIT
+		_notify("オブジェクトの上限は %d 個です。" % Custom.OBJECT_LIMIT, true)
 		return
 	if selected != 0:
-		_select(draft.duplicate_object(selected))
+		var copy := draft.duplicate_object(selected)
+		if copy != 0:
+			_select(copy)
+			_notify("オブジェクトを複製しました。")
 
 
 func _delete_selected() -> void:
-	draft.remove(selected)
+	if selected != 0:
+		draft.remove(selected)
+		_notify("オブジェクトを削除しました。")
 
 
 func _undo() -> void:
 	view.cancel_drag()
+	if draft.undo_stack.is_empty():
+		return
 	draft.undo()
+	_notify("操作を元に戻しました。")
 
 
 func _redo() -> void:
 	view.cancel_drag()
+	if draft.redo_stack.is_empty():
+		return
 	draft.redo()
+	_notify("操作をやり直しました。")
 
 
 func _set_axis(index: int) -> void:
@@ -672,6 +769,7 @@ func _set_axis(index: int) -> void:
 	view.axis = index
 	view.select_object(selected)
 	axis_buttons[index + 1].set_pressed_no_signal(true)
+	_notify("移動方向を %s に切り替えました。" % ("XZ 平面" if index < 0 else AXIS_TEXT[index] + " 軸"))
 
 
 func _update_actions() -> void:

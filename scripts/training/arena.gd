@@ -2,6 +2,8 @@ extends Node3D
 
 const Draft = preload("res://scripts/editor/editor_draft.gd")
 const Geometry = preload("res://scripts/editor/object_geometry.gd")
+const Scenario = preload("res://scripts/scenarios/scenario.gd")
+const Humanoid = preload("res://scripts/targets/humanoid_dummy.gd")
 const PLAY_AREA_LAYER := 8
 
 var target: StaticBody3D
@@ -41,7 +43,12 @@ func build(scenario: Dictionary) -> void:
 		var center := Vector3(obstacle.center[0], obstacle.center[1], obstacle.center[2])
 		var dimensions := Vector3(obstacle.size[0], obstacle.size[1], obstacle.size[2])
 		box(center, dimensions, Color.html(obstacle.color), true, false, obstacle.pitch)
-	target = create_target(scenario.target.radius, Color.html(scenario.target.color), scenario.target.has("health"))
+	var paint := Color.html(scenario.target.color)
+	if scenario.type == Scenario.APEX_HUMANOID:
+		target = Humanoid.new(scenario.target.height, paint)
+		add_child(target)
+	else:
+		target = create_target(scenario.target.radius, paint, scenario.target.has("health"))
 
 
 func _build_environment(background: Color, energy: float) -> void:

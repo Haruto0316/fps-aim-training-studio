@@ -209,7 +209,8 @@ func _key(code: Key, down: bool) -> void:
 
 
 func _pick(studio: Studio, name: String) -> void:
-	_press(studio, "移動型ドリル")
+	_press(studio, "練習モード")
+	_press(studio, "トラッキング")
 	_press(studio, name)
 
 
