@@ -392,7 +392,7 @@ func show_settings() -> void:
 	distance.add_child(Style.label("水平の振り向き距離", 19, Style.MUTED))
 	var reading := Style.label("", 32, Style.ACCENT)
 	distance.add_child(reading)
-	var note := Style.label("DPI は実機の設定値を入力します。ゲーム別の値は、腰だめでの水平回転を近似します。", 17, Style.MUTED)
+	var note := Style.label("ゲーム別プリセットではゲーム内のマウス感度をそのまま入力します。DPI はマウス本体の設定に合わせてください。", 17, Style.MUTED)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	distance.add_child(note)
 	distance.add_child(Style.button("移動設定", show_movement_settings))

@@ -2,6 +2,7 @@
   "schema_version": 1,
   "preset": "generic",
   "sensitivity": 0.035,
+  "sensitivity_by_preset": { "generic": 0.035, "valorant": 0.5, "apex": 1.6 },
   "horizontal": 1.0,
   "vertical": 1.0,
   "vertical_fov": 65.0,

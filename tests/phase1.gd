@@ -44,6 +44,9 @@ func _test_data() -> void:
 	var settings := Aim.new(path)
 	_check(settings.values.preset == "generic", "unknown preset falls back")
 	_check(settings.values.dpi == 100 and settings.values.sensitivity == settings.defaults.sensitivity, "safe settings limits and defaults")
+	var migrated := settings.validate({"schema_version": 1, "preset": "apex", "sensitivity": 2.25})
+	_check(migrated.sensitivity_by_preset == {"generic": 0.035, "valorant": 0.5, "apex": 2.25},
+		"legacy sensitivity is retained for its selected preset only")
 	_check(Store.write(path + ".bak", settings.defaults) == OK, "create recovery fixture")
 	var invalid := FileAccess.open(path, FileAccess.WRITE)
 	invalid.store_string("{broken")
@@ -68,10 +71,10 @@ func _test_camera_and_score() -> void:
 	profile.horizontal = 1.5
 	profile.vertical = 0.5
 	var angular := settings.degrees_per_count(profile)
-	_check(angular.is_equal_approx(Vector2(0.0654, 0.0218)), "per-axis preset conversion")
-	_check(is_equal_approx(settings.cm_per_turn(profile), 914.4 / (800.0 * 0.0654)), "cm per turn")
-	profile.preset = "valorant"
-	_check(is_equal_approx(settings.degrees_per_count(profile).x, 0.2082), "VALORANT preset conversion")
+	_check(angular.is_equal_approx(Vector2(0.044, 0.044)), "Apex uses its game scale on both axes")
+	_check(is_equal_approx(settings.cm_per_turn(profile), 914.4 / (800.0 * 0.044)), "cm per turn")
+	profile.preset = "generic"
+	_check(settings.degrees_per_count(profile).is_equal_approx(Vector2(3.0, 1.0)), "generic axis multipliers remain effective")
 
 	var first := Camera.new()
 	var second := Camera.new()
@@ -83,6 +86,18 @@ func _test_camera_and_score() -> void:
 	_check(first.rotation.is_equal_approx(second.rotation), "sensitivity independent of event grouping")
 	first.apply_motion(Vector2(0, 100000.0))
 	_check(is_equal_approx(first.pitch, -89.0), "camera clamps pitch")
+	for game: String in ["apex", "valorant"]:
+		profile.preset = game
+		profile.sensitivity = 1.0 if game == "apex" else 0.3
+		first.degrees_per_count = settings.degrees_per_count(profile)
+		profile.sensitivity += 0.5
+		second.degrees_per_count = settings.degrees_per_count(profile)
+		first.yaw = 0.0
+		second.yaw = 0.0
+		first.apply_motion(Vector2(-1000, 0))
+		second.apply_motion(Vector2(-1000, 0))
+		var expected := 11.0 if game == "apex" else 34.98
+		_check(absf(second.yaw - first.yaw - expected) < 0.0001, game + " +0.5 matches the reference hipfire rotation change")
 	first.free()
 	second.free()
 
@@ -110,11 +125,24 @@ func _test_playthrough() -> void:
 	_press(studio, "設定")
 	var settings_inputs := studio.find_children("*", "SpinBox", true, false)
 	_check(settings_inputs.size() == 5, "settings form")
-	settings_inputs[0].get_line_edit().text = "0.048"
+	var base: SpinBox = settings_inputs[0]
+	var preset: OptionButton = studio.page.find_child("SensitivityPreset", true, false)
+	base.get_line_edit().text = "0.048"
+	_select_preset(preset, 1)
+	_check(is_equal_approx(base.value, 0.5) and not settings_inputs[1].get_parent().visible, "VALORANT shows its value and uses fixed axis scaling")
+	base.get_line_edit().text = "0.315"
+	_select_preset(preset, 2)
+	base.get_line_edit().text = "1.85"
+	_select_preset(preset, 1)
+	_check(is_equal_approx(base.value, 0.315) and is_equal_approx(base.get_line_edit().text.to_float(), 0.315), "preset switches restore the edited value immediately")
+	_select_preset(preset, 0)
+	_check(is_equal_approx(base.value, 0.048) and settings_inputs[1].get_parent().visible, "generic sensitivity and axis options return")
 	settings_inputs[3].get_line_edit().text = "70"
 	_press(studio, "保存してホームへ")
 	var settings := Aim.new(studio.aim.save_path)
 	_check(is_equal_approx(settings.values.sensitivity, 0.048) and settings.values.vertical_fov == 70.0, "settings save via UI and reload")
+	_check(is_equal_approx(settings.values.sensitivity_by_preset.valorant, 0.315)
+		and is_equal_approx(settings.values.sensitivity_by_preset.apex, 1.85), "both other presets survive save and reload")
 
 	_press(studio, "標準練習モード")
 	_press(studio, "Static Clicking")
@@ -210,6 +238,11 @@ func _send_pressed_and_released(event: InputEvent) -> void:
 	released.pressed = false
 	Input.parse_input_event(released)
 	Input.flush_buffered_events()
+
+
+func _select_preset(preset: OptionButton, index: int) -> void:
+	preset.select(index)
+	preset.item_selected.emit(index)
 
 
 func _press(studio: Studio, caption: String) -> void:

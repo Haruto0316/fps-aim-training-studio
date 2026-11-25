@@ -30,14 +30,24 @@ func validate(raw: Dictionary) -> Dictionary:
 	if raw.get("preset") is String and presets.has(raw.preset):
 		result.preset = raw.preset
 	for key: String in FIELDS:
+		if key == "sensitivity":
+			continue
 		var limits: Array = FIELDS[key]
 		result[key] = Store.number(raw.get(key), defaults[key], limits[0], limits[1])
+	var sensitivity_limits: Array = FIELDS.sensitivity
+	var saved: Dictionary = raw.sensitivity_by_preset if raw.get("sensitivity_by_preset") is Dictionary else {}
+	var sensitivities: Dictionary = result.sensitivity_by_preset
+	for id: String in sensitivities:
+		sensitivities[id] = Store.number(saved.get(id), sensitivities[id], sensitivity_limits[0], sensitivity_limits[1])
+	# The active scalar also imports the selected preset from older settings files.
+	result.sensitivity = Store.number(raw.get("sensitivity"), sensitivities[result.preset], sensitivity_limits[0], sensitivity_limits[1])
+	sensitivities[result.preset] = result.sensitivity
 	return result
 
 
 func degrees_per_count(profile: Dictionary) -> Vector2:
 	var base: float = profile.sensitivity * presets[profile.preset].degrees_per_count
-	return base * Vector2(profile.horizontal, profile.vertical)
+	return base * Vector2(profile.horizontal, profile.vertical) if profile.preset == "generic" else Vector2.ONE * base
 
 
 func cm_per_turn(profile: Dictionary) -> float:

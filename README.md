@@ -104,21 +104,21 @@ Godot の実行ファイルに `--path .` を渡して起動することもで�
 
 ## マウス感度
 
-ホームとポーズ画面の両方で、基本感度・水平倍率・垂直倍率の上下ボタンは0.1ずつ変わります。小数の直接入力で細かく調整できます。
+ホームとポーズ画面の両方で、マウス感度は汎用 FPS・VALORANT・Apex Legends ごとに保存されます。プリセットを切り替えると、そのプリセットで前回入力した値が表示されます。感度と汎用 FPS の各軸倍率の上下ボタンは0.1ずつ変わります。小数の直接入力で細かく調整できます。DPI はマウス本体の設定に合わせて入力します。
 
 キャプチャ中は `InputEventMouseMotion.screen_relative` を使用します。この値はウィンドウのコンテンツ拡縮の影響を受けません。視点回転はイベントごとの移動量に感度を掛けて計算し、フレームのデルタ時間、補間、アプリ独自の加速は使用しません。練習中は `Input.use_accumulated_input` を無効化します。ピッチは ±89° に制限しています。 [Godot のマウス移動イベント](https://docs.godotengine.org/en/stable/classes/class_inputeventmousemotion.html) · [Godot の入力集約](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-property-use-accumulated-input)
 
 Godot 4.7.2 の Windows バックエンドには、Windows Raw Input を登録して `WM_INPUT` などから処理する経路があります。登録に失敗した際はエンジンが経路を切り替えます。このアプリは Godot のイベントを使用し、デバイスごとの入力経路や USB ポーリング頻度を計測する機能は Phase 1 の範囲外です。 [Godot 4.7.2 の Windows 実装](https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/platform/windows/display_server_windows.cpp)
 
-水平回転の係数は `基本感度 × プリセット係数 × 水平倍率` です。垂直も同じ式で垂直倍率を使います。`cm / 360° = 360 × 2.54 ÷ (DPI × 水平回転の係数)` で、入力した DPI から水平一回転の距離を表示します。DPI を変更するには、マウス本体またはメーカーの設定を使用してください。
+マウス1カウントあたりの回転角は `入力した感度 × プリセット係数` です。汎用 FPS ではさらに水平・垂直の倍率を掛けます。`cm / 360° = 360 × 2.54 ÷ (DPI × 水平回転の係数)` で、入力した DPI から水平一回転の距離を表示します。DPI を変更するには、マウス本体またはメーカーの設定を使用してください。
 
 | プリセット | 感度1.0での係数 |
 | --- | ---: |
 | 汎用 FPS | 1.0000° / カウント |
-| VALORANT | 0.0694° / カウント |
-| Apex Legends | 0.0218° / カウント |
+| VALORANT | 0.06996° / カウント |
+| Apex Legends | 0.022° / カウント |
 
-ゲーム別プリセットには、マウス感度調整を扱った研究の係数を使っています。ゲームと同じ DPI を使用し、ゲーム側は腰だめ・加速なし・水平補正が既定値、アプリ側は水平倍率1.00を前提にしています。係数は近似値です。ここで合わせるのは物理的な水平回転量です。設定画面の FOV は垂直角で、ADS や画面上の移動距離は変換の対象外です。 [日本デジタルゲーム学会の発表予稿、式1](https://www.jstage.jst.go.jp/article/digrajprocsummer/2021/0/2021_27/_pdf)
+ゲーム別プリセットでは、同じ DPI でゲーム内の腰だめ感度をそのまま入力します。例として Apex Legends で感度を 1.0 から 1.5 に上げる場合、同じ 1,000 カウントの入力に対する回転量は 22° から 33° に変わります。係数は公開されている換算値を使います。スコープ倍率と FOV は各ゲームの設定に応じて見え方が変わります。 [KovaaK’s の感度換算](https://www.kovaaks.com/kovaaks/sens-converter/valorant-to-apex)
 
 ## 計測と保存
 

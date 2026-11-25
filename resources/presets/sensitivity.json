@@ -1,5 +1,5 @@
 {
   "generic": { "label": "汎用 FPS（度 / カウント）", "degrees_per_count": 1.0 },
-  "valorant": { "label": "VALORANT（腰だめ・近似）", "degrees_per_count": 0.0694 },
-  "apex": { "label": "Apex Legends（腰だめ・近似）", "degrees_per_count": 0.0218 }
+  "valorant": { "label": "VALORANT（腰だめ）", "degrees_per_count": 0.06996 },
+  "apex": { "label": "Apex Legends（腰だめ）", "degrees_per_count": 0.022 }
 }

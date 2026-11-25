@@ -102,15 +102,22 @@ func _check_pause_settings(studio: Studio, session: Session) -> void:
 	_click_arrow(base, false)
 	_check(is_equal_approx(base.value, before), "the down button subtracts 0.1")
 	base.get_line_edit().text = "0.1735"
+	var preset: OptionButton = session.pause_settings.find_child("SensitivityPreset", true, false)
+	preset.select(1)
+	preset.item_selected.emit(1)
 	_key(KEY_ESCAPE)
 	_check(session.pause_settings == null and session.paused and session.camera.degrees_per_count == start_gain,
 		"Escape cancels the pending edit and returns to the pause menu")
+	_check(is_equal_approx(studio.aim.values.sensitivity_by_preset.generic, before), "a canceled preset switch does not edit saved values")
 	await process_frame
 
 	_press(studio, "設定")
 	fields = session.pause_settings.find_children("*", "SpinBox", true, false)
 	base = fields[0]
-	base.get_line_edit().text = "0.1735"
+	preset = session.pause_settings.find_child("SensitivityPreset", true, false)
+	preset.select(2)
+	preset.item_selected.emit(2)
+	base.get_line_edit().text = "1.7354"
 	fields[3].get_line_edit().text = "67.5"
 	_press(studio, "保存してポーズへ戻る")
 	await _ticks(4)
@@ -119,7 +126,8 @@ func _check_pause_settings(studio: Studio, session: Session) -> void:
 		"saving settings keeps the same round paused and the timer frozen")
 	_check(session.camera.degrees_per_count.is_equal_approx(saved.degrees_per_count(saved.values))
 		and session.camera.degrees_per_count != start_gain and is_equal_approx(session.camera.fov, 67.5)
-		and is_equal_approx(saved.values.sensitivity, 0.1735), "precise input saves and immediately updates the same camera")
+		and saved.values.preset == "apex" and is_equal_approx(saved.values.sensitivity, 1.7354),
+		"precise game sensitivity saves and immediately updates the same camera")
 	_key(KEY_ESCAPE)
 	await _ticks(4)
 	_check(not session.paused and session.clock.elapsed(Time.get_ticks_usec()) > frozen, "resuming continues the same timer")
